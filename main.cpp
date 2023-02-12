@@ -108,7 +108,7 @@ void loop() {
 }
 
 bool invert = 0;
-int checkpoint = 2;
+int checkpoint = 0;
 int counter = 0;
 void next_checkpoint() {
   checkpoint++;
@@ -175,7 +175,7 @@ void robot_control() {
   else if (checkpoint == 1){
             
            
-        if (   (  ((cnt >= 3 && val >= 5.5)) && (counter == 0) && is_stopped() ) || counter == 1) 
+        if (   ( ((cnt >= 3 && val >= 5.5)) && (counter == 0) && is_stopped() ) || counter == 1) 
               { //-> passing through second Turn
                 if (counter == 0){counter ++ ; start_timer(250);right_brake(turnspeed,turnspeed); all_good = 1;gear_box(-1); }
                 else if (counter == 1 && !is_stopped()){right_brake(turnspeed,turnspeed); all_good = 1;}
@@ -205,34 +205,97 @@ void robot_control() {
               } 
         else if ( (counter == 1  && is_stopped() )|| counter == 2)
               {//-> reached the black arrow and  handling it
-                if ( (cnt >= 4) && counter == 1) { forward_brake(basespeeda, basespeedb); all_good = 1; counter++;}
-                else if ( (cnt >= 3) && counter ==2) { all_good = 1;}//forward_brake(basespeeda, basespeedb); }
-                else if (counter == 2) {counter++; delay(800) ;start_timer(300);}
+                if ( (cnt >= 4) && counter == 1) { cnt = 0 ; val = 3.5;error=0; counter++;}
+                else if ( (cnt >= 3) && counter ==2) {cnt = 0 ; val = 3.5; error = 0;}//forward_brake(basespeeda, basespeedb); }
+                else if (counter == 2) {counter++; start_timer(200);}
               
               }
         else if ( (counter == 3 && is_stopped()) ) 
               {
-                ;
-                gear_box(0); counter++;start_timer(100);stop_motors(5000) ;
+                
+                gear_box(0); counter++;start_timer(100) ; 
                 
               }
-        else if (   (  (cnt>=4 & val>3.5) && (counter == 4) && is_stopped() ) || counter == 5) 
+        else if ( ( (cnt>=4 & val>3.5) && (counter == 4) && is_stopped() ) || counter == 5) 
               { //->reached the BITCH turn and handling it 
 
                 
                 if (counter == 4){counter ++ ; start_timer(600);right_brake(turnspeed/2,turnspeed); all_good = 1;gear_box(-1); }
                 else if (counter == 5 && !is_stopped()){right_brake(turnspeed/2,turnspeed); all_good = 1;}
-                else if (counter == 5 && is_stopped()){ counter++; start_timer(200);stop_motors(5000);  }
+                else if (counter == 5 && is_stopped()){ counter++; start_timer(200);gear_box(-1);next_checkpoint() ;}
 
 
               } 
-             
+                 
+  }
+  else if (checkpoint == 3) {
+        //---- force turn block ----//
+        if ((cnt==0) && (counter == 0 ) && is_stopped())
+              { 
+                right_brake(turnspeed/2,turnspeed);
+                start_timer(200);
+                gear_box(-1);
+                counter++;
+                all_good = 1;
+              }
+        else if (counter == 1 )
+              {
+                if (is_stopped() || cnt>0){ counter ++; reset_timer(); start_timer(200);}
+                else {all_good = 1;}
+              } 
+        //---- end force turn ----//
 
+        else if (((SensorRawValues[7]||SensorRawValues[7])&&(SensorRawValues[1]||SensorRawValues[1])==1) && (counter == 2) && is_stopped())
+              {
+                Serial.println("inverting sensors");
+                start_timer(600);
+                
+                invert = (! invert) ;
+                if (invert == 0){counter ++; start_timer(500);}
 
-
-
+              }
+        else if ( (cnt >=6 ) && is_stopped() && counter == 3)
+              {
+                delay(70);
+                //gear_box(2);
+                forward_brake(0, 0);
+                all_good = 1;
+                counter ++;
+              }
+        else if (counter == 4)
+              {
+                all_good = 1;
+              }
     
   }
+   //Serial.print("cnt:");Serial.print(cnt);Serial.print(" val:");Serial.println(val);
+  // fallback code 
+  if (is_time() & (! is_stopped())){
+    reset_timer();
+  }
+  if (all_good == 0)
+    {
+  
+    //PID(error);
+     
+    if ((cnt>=4 && val>3.5) || (cnt >= 3 && val >5.5 ))
+        {
+          right_brake(turnspeed/2, turnspeed);  
+        }
+    else if ( (cnt>=4 && val<3.5) || (cnt >=3 && val < 2.5  )) 
+        {
+          left_brake(turnspeed, turnspeed/2);
+        }
+    else 
+        {
+         PID(error);
+        // forward_brake(basespeeda, basespeedb);
+        
+         
+        // f
+        }
+  
+    }
               
 
   
