@@ -74,7 +74,8 @@ void gear_box(int gear) {
 }
 
 void setup() {
-  Serial.begin(9600);
+  int lunch_time,current_time;
+  //Serial.begin(9600);
  
   pinMode(enbA, OUTPUT);
   pinMode(inpA1, OUTPUT);
@@ -89,15 +90,30 @@ void setup() {
   }
 
   pinMode(LED_BUILTIN, OUTPUT);
-  forward_brake(basespeeda, basespeedb);
+  
   gear_box(0);
-
+  pinMode(LED_BUILTIN, OUTPUT);
   lcd.init();  
   lcd.noBacklight();
   lcd.begin(16, 2);
   lcd.clear();
   lcd.setCursor(3, 0);
-
+  pinMode(12,INPUT);
+  current_time=millis();
+  int x=0;
+  digitalWrite(LED_BUILTIN, HIGH);
+  while(1){
+  x=digitalRead(12);
+  //Serial.println(x);
+    if(x==HIGH){
+        lunch_time=millis();
+      if(lunch_time-current_time>200)
+      break;
+    }
+  }
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(200);
+  forward_brake(basespeeda, basespeedb);
   //lcd.noBacklight();
   //lcd.print("Gryffindor");
  
@@ -108,7 +124,7 @@ void loop() {
 }
 
 bool invert = 0;
-int checkpoint = 0;
+int checkpoint =-1; //-1;
 int counter = 0;
 void next_checkpoint() {
   checkpoint++;
@@ -137,9 +153,16 @@ void robot_control() {
     error += SensorRawValues[i] * SensorWeights[i];
   };
   if (cnt) val = sum / cnt;
+  //Serial.print("cnt:");Serial.print(cnt);Serial.print(" val:");Serial.println(val);
 
-  if (checkpoint == 0){
-        if (   (  (SensorRawValues[7] || SensorRawValues[6]) && (counter == 0) ) || counter == 1) 
+  // ---- El Maquette ---- \\ 
+
+  if (checkpoint == -1){
+    start_timer(200);
+    next_checkpoint();
+  }
+  else if (checkpoint == 0){
+        if (   (  (SensorRawValues[7] || SensorRawValues[6]) && (counter == 0) && is_stopped() ) || counter == 1) 
               { //-> Entering First Turn
               
                 
@@ -153,7 +176,7 @@ void robot_control() {
               { //-> Exiting the turn 
               /// WAITING TIME BEFORE STOP
               // B4STOP
-              start_timer(400); counter ++ ;
+              start_timer(650); counter ++ ;
               }
         else if ( (counter== 3) && is_stopped()  )
               { //-> Stopping
@@ -163,9 +186,10 @@ void robot_control() {
                 forward_brake(0,0);
                 gear_box(0);
                 lcd.clear();
+                lcd.backlight();
                 lcd.print("Gryffindor");
                 counter ++;
-                delay(2000);
+                delay(4800);
                 lcd.noBacklight();
                
                 next_checkpoint(); start_timer(100);
@@ -233,92 +257,88 @@ void robot_control() {
         if ((cnt==0) && (counter == 0 ) && is_stopped())
               { 
                 right_brake(turnspeed/2,turnspeed);
-                start_timer(200);
-                gear_box(-1);
+                start_timer(50);
+                //gear_box(0);
                 counter++;
                 all_good = 1;
+                
+               //stop_motors(5000);
               }
         else if (counter == 1 )
-              {
+              { 
+                
                 if (is_stopped() || cnt>0){ counter ++; reset_timer(); start_timer(200);}
-                else {all_good = 1;}
+                else {all_good = 1;right_brake(turnspeed/2,turnspeed);}
               } 
         //---- end force turn ----//
 
-        else if (((SensorRawValues[7]||SensorRawValues[7])&&(SensorRawValues[1]||SensorRawValues[1])==1) && (counter == 2) && is_stopped())
+        else if (((SensorRawValues[7])&&(SensorRawValues[0])==1) && (counter == 2) && is_stopped())
               {
                 Serial.println("inverting sensors");
-                start_timer(600);
+                
+                start_timer(300);
                 
                 invert = (! invert) ;
-                if (invert == 0){counter ++; start_timer(500);}
+                if (invert == 0){counter ++; start_timer(1000);}
 
               }
-        else if ( (cnt >=6 ) && is_stopped() && counter == 3)
+        else if ( (cnt >=4 ) && counter == 3)
               {
-                delay(70);
-                //gear_box(2);
-                forward_brake(0, 0);
-                all_good = 1;
-                counter ++;
+                
+               counter ++;
               }
         else if (counter == 4)
               {
-                all_good = 1;
+                
+                // forward_brake(0, 0);
+               //all_good = 1;
               }
     
   }
-   //Serial.print("cnt:");Serial.print(cnt);Serial.print(" val:");Serial.println(val);
-  // fallback code 
-  if (is_time() & (! is_stopped())){
-    reset_timer();
-  }
-  if (all_good == 0)
-    {
   
-    //PID(error);
-     
-    if ((cnt>=4 && val>3.5) || (cnt >= 3 && val >5.5 ))
+  // update timer 
+  if (is_time() & (!is_stopped())) { reset_timer();  }
+
+  // fallback code 
+  if (all_good == 0) {
+    if ((cnt >= 4 && val > 3.5) || (cnt >= 3 && val >= 5.5))
         {
-          right_brake(turnspeed/2, turnspeed);  
+          right_brake(turnspeed / 2, turnspeed);
         }
-    else if ( (cnt>=4 && val<3.5) || (cnt >=3 && val < 2.5  )) 
+    else if ((cnt >= 4 && val < 3.5) || (cnt >= 3 && val <= 2.5)) 
         {
-          left_brake(turnspeed, turnspeed/2);
+          left_brake(turnspeed, turnspeed / 2);
         }
     else 
         {
-         PID(error);
-        // forward_brake(basespeeda, basespeedb);
-        
-         
-        // f
+          PID(error);
         }
-  
-    }
-              
-
-  
- 
-  
-
-
-
-  if (is_time() & (!is_stopped())) {
-    reset_timer();
   }
+  
+  // // update timer
+  // if (is_time() & (! is_stopped())){
+  //   reset_timer();
+  // }
 
-  //print_list(SensorRawValues, SensorCount);
-  if (all_good == 0) {
-    if ((cnt >= 4 && val > 3.5) || (cnt >= 3 && val >= 5.5)) {
-      right_brake(turnspeed / 2, turnspeed);
-    } else if ((cnt >= 4 && val < 3.5) || (cnt >= 3 && val <= 2.5)) {
-      left_brake(turnspeed, turnspeed / 2);
-    } else {
-      PID(error);
-    }
+  // // fallback code 
+  // if (all_good == 0)
+  //   {
+     
+  //   if ((cnt>=4 && val>3.5) || (cnt >= 3 && val >5.5 ))
+  //       {
+  //         right_brake(turnspeed/2, turnspeed);  
+  //       }
+  //   else if ( (cnt>=4 && val<3.5) || (cnt >=3 && val < 2.5  )) 
+  //       {
+  //         left_brake(turnspeed, turnspeed/2);
+  //       }
+  //   else 
+  //       {
+  //        PID(error);
+  //       }
+  
+  //   }         
 
-  }
 }
 
 void PID(int error) {
@@ -396,6 +416,9 @@ void stop_motors(int dt) {
   forward_brake(0, 0);
   delay(dt);
 }
+
+
+
 // ### Timer and Shit ## //
 //start new Timer
 void start_timer(unsigned long duration) {
@@ -424,30 +447,3 @@ bool is_time() {
 
 
 
-
-// #####----------------####### //
-//start new Timer
-void start_timer2(unsigned long duration) {
-  if (is_stopped2()) {
-    END_OF_TIMER2 = millis() + duration;
-  }
-}
-//Timer is stopped
-bool is_stopped2() {
-  return (END_OF_TIMER2 == 0);
-}
-//Reset the timer
-bool reset_timer2() {
-  END_OF_TIMER2 = 0;
-}
-//Check if the timer is done
-bool is_time2() {
-  //timer isn t even started
-  if (is_stopped2()) return 0;
-
-  //timer has ended
-  if ((END_OF_TIMER2 <= millis())) return 1;
-
-  return 0;
-}
-// #####----------------####### //
