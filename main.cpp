@@ -131,9 +131,6 @@ void next_checkpoint() {
   counter = 0;
 }
 unsigned long END_OF_TIMER = 0;
-unsigned long END_OF_TIMER2 = 0;
-
-
 
 void robot_control() {
   bool all_good = 0;
